@@ -22,7 +22,7 @@ bool EpicsRecComplete = false;
 
 //STATES
 enum { LISTEN , MSTART , MGO , MEND , ERROR } state = LISTEN;
-enum { MStatus , PVADC , Setpoint } outmesg = PVADC;
+enum { State, MStatus , PVADC , Setpoint } outmesg = PVADC;
 
 //utils
 void ReadADC(){
@@ -45,26 +45,34 @@ void initLCDline(byte n, byte startpos = 0){
 //communication
 void sendState(){
 	switch (outmesg){
-		case Setpoint:
-			initLCDline(2);
-			lcd.print(setpoint_f);
+	case State:
+		initLCDline(0,7);
+		switch (state){
+			case Listen:
+				lcd.print("Listening");
 			break;
-		case PVADC:
-			lcd.setCursor(5,0);
-			lcd.print(uvolt);
-			break;
-		case MStatus:
-			initLCDline(3,7);
-			if ( power ){
-				if ( direction ) {
-					lcd.print("forward");
-				} else {
-					lcd.print("reverse");
-				}
+		}
+		break;
+	case Setpoint:
+		initLCDline(2);
+		lcd.print(setpoint_f);
+		break;
+	case PVADC:
+		lcd.setCursor(5,0);
+		lcd.print(uvolt);
+		break;
+	case MStatus:
+		initLCDline(3,7);
+		if ( power ){
+			if ( direction ) {
+				lcd.print("forward");
 			} else {
-				lcd.print("off");
+				lcd.print("reverse");
 			}
-			break;
+		} else {
+			lcd.print("off");
+		}
+		break;
 	}
 }
 void serialEvent(){
@@ -95,7 +103,7 @@ void setup(void) {
 	
 	//persistant lines on lcd:
 	lcd.setCursor(0,0);
-	lcd.print("ADC: ");
+	lcd.print("Status:");
 	lcd.setCursor(0,1);
 	lcd.print("EPICS - data:");
 	lcd.setCursor(0,3);
@@ -115,6 +123,8 @@ void loop() {
 	switch(state){
 		case LISTEN:
 			if ( EpicsRecComplete ){
+				outmesg = State;
+				sendState();
 				outmesg = Setpoint;
 				sendState();
 				convert_String();
