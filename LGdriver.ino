@@ -26,9 +26,15 @@ enum { State, MStatus , PVADC , Setpoint } outmesg = PVADC;
 
 //utils
 void ReadADC(){
-	long raw = adc.reading();
+	adc.receive();
+	long raw = (long) adc.read(0) << 16;
+	raw |= (word) adc.read(0) << 8;
+	raw |= adc.read(0);
+	//byte status = adc.read(1);
 	uvolt = raw;
-}
+//	raw *= 1000 / (64);
+//	uvolt = raw / 1000000.;
+} 
 void convert_String(){
 	char temp[EpicsRecord.length() + 1];
 	EpicsRecord.toCharArray( temp, sizeof(temp));
@@ -44,25 +50,36 @@ void initLCDline(byte n, byte startpos = 0){
 
 //communication
 void sendState(){
+
 	switch (outmesg){
+
 	case State:
-		initLCDline(0,7);
+		lcd.setCursor(8,0);
 		switch (state){
-			case Listen:
-				lcd.print("Listening");
+		case LISTEN:
+			lcd.print("LISTEN");
+			break;
+		case ERROR:
+			lcd.print("ERROR!");
+			break;
+		default:
+			lcd.print("MOVING");
 			break;
 		}
 		break;
+
 	case Setpoint:
-		initLCDline(2);
+		initLCDline(2,8);
 		lcd.print(setpoint_f);
 		break;
+
 	case PVADC:
-		lcd.setCursor(5,0);
+		initLCDline(1,8);
 		lcd.print(uvolt);
 		break;
+
 	case MStatus:
-		initLCDline(3,7);
+		initLCDline(3,8);
 		if ( power ){
 			if ( direction ) {
 				lcd.print("forward");
@@ -103,11 +120,13 @@ void setup(void) {
 	
 	//persistant lines on lcd:
 	lcd.setCursor(0,0);
-	lcd.print("Status:");
+	lcd.print("Status: ");
 	lcd.setCursor(0,1);
-	lcd.print("EPICS - data:");
+	lcd.print("ADC:    ");
+	lcd.setCursor(0,2);
+	lcd.print("EPICS:  ");
 	lcd.setCursor(0,3);
-	lcd.print("Motor: ");
+	lcd.print("Motor:  ");
 	
 	// init
 	ReadADC();
@@ -121,27 +140,46 @@ void setup(void) {
 void loop() {
 
 	switch(state){
-		case LISTEN:
-			if ( EpicsRecComplete ){
-				outmesg = State;
-				sendState();
-				outmesg = Setpoint;
-				sendState();
-				convert_String();
-				EpicsRecord = "";
-				EpicsRecComplete = false;
-				state=MSTART;
-			}
-			break;
-		case MSTART:
-			state = MGO;
-			break;
-		case MGO:
-			state = MEND;
-			break;
-		case MEND:
-			state = LISTEN;
-			break;
+
+	case LISTEN:
+		outmesg = State;
+		sendState();
+		if ( EpicsRecComplete ){
+			outmesg = Setpoint;
+			sendState();
+			convert_String();
+			EpicsRecord = "";
+			EpicsRecComplete = false;
+			state=MSTART;
+		}
+		break;
+
+	case MSTART:
+		ReadADC();
+		outmesg = PVADC;
+		sendState();
+
+
+
+		outmesg = State;
+		sendState();
+
+		state = MGO;
+		break;
+		
+	case MGO:
+		outmesg = State;
+		sendState();
+
+		state = MEND;
+		break;
+
+	case MEND:
+		outmesg = State;
+		sendState();
+
+		state = LISTEN;
+		break;
 	}
 
 }
