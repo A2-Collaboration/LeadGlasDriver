@@ -9,7 +9,6 @@
 #define UMAX 2.048
 //how precise should the position be?
 #define POS_PRECISION 5  // +- % [UMAX]
-#define POS_HYSTERESIS  0.02 //  [ V ]
 #define T_SAMPLE 300 // [ ms ]
 
 // constants
@@ -85,25 +84,35 @@ void sendState(){
 
 	case Setpoint:
 		initLCDline(2,8);
-		lcd.print(setpoint_f);
+		lcd.print(setpoint_f,4);
 		lcd.print("V");
 		break;
 
 	case PVADC:
 		initLCDline(1,8);
-		lcd.print(adc_f);
+		lcd.print(adc_f,4);
 		lcd.print("V");
+		Serial.print("adcpos");
+		Serial.println(adc_f,4);
 		break;
 
 	case MStatus:
 		initLCDline(3,8);
 		if ( power ){
+			Serial.print("0s");
+			Serial.println(1);
 			if ( direction ) {
 				lcd.print("forward");
+				Serial.print("1s");
+				Serial.println(1);
 			} else {
 				lcd.print("reverse");
+				Serial.print("1s");
+				Serial.println(-1);
 			}
 		} else {
+			Serial.print("0s");
+			Serial.println(0);
 			lcd.print("off");
 		}
 		break;
@@ -117,20 +126,44 @@ void serialEvent(){
 	}
 }
 
+// Prepare to MOVE
+void Init_Start(){
+	convert_String();
+	outmesg = Setpoint;
+	sendState();
+	EpicsRecord = "";
+	EpicsRecComplete = false;
+	state=MSTART;
+}
+
 // Motor - CONTROLS
-void _set_to(bool dir){
+void PowerOn(){
+	power = true;
+	mdriver.digiWrite(HIGH);
 	outmesg = MStatus;
+	sendState();
+}
+void PowerOff(){
+	power = false;
+	mdriver.digiWrite(LOW);
+	outmesg = MStatus;
+	sendState();
+}
+void _set_to(bool dir){
 	if ( direction != dir){	
 		// switch off motor befor changing polarity
 		bool power_old = power;
-		power = false;
-		sendState();
+		PowerOff();
 		delay(500);
 		direction = dir;
+		if ( dir ){
+			mdriver.digiWrite2(HIGH);
+		} else {
+			mdriver.digiWrite2(LOW);
+		}
 		sendState();
 		delay(500);
-		power = power_old;
-		sendState();
+		if (power_old) PowerOn();
 	}
 }
 bool SetMotorDirection(){
@@ -140,18 +173,6 @@ bool SetMotorDirection(){
 	}
 	_set_to( adc_f < setpoint_f );
 	return 1;
-}
-
-void PowerOn(){
-	power = true;
-	outmesg = MStatus;
-	sendState();
-}
-
-void PowerOff(){
-	power = false;
-	outmesg = MStatus;
-	sendState();
 }
 
 //MAIN EVT-LOOPS:
@@ -201,12 +222,7 @@ void loop() {
 		sendState();
 		// once msg is finshed, get setpoint and go to MSTART
 		if ( EpicsRecComplete ){
-			convert_String();
-			outmesg = Setpoint;
-			sendState();
-			EpicsRecord = "";
-			EpicsRecComplete = false;
-			state=MSTART;
+			Init_Start();
 		}
 		break;
 
@@ -260,6 +276,3 @@ void loop() {
 	}
 
 }
-
-	
-	
