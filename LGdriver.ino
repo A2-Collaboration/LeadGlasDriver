@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Ports.h>
 #include <PortsLCD.h>
 #include <RF12.h>
@@ -7,7 +8,9 @@
 // maximum ADC-Voltage
 #define UMAX 2.048
 //how precise should the position be?
-#define POS_PRECISION 10  // +- % [UMAX]
+#define POS_PRECISION 5  // +- % [UMAX]
+#define POS_HYSTERESIS  0.02 //  [ V ]
+#define T_SAMPLE 300 // [ ms ]
 
 // constants
 const float lsb_adc = 15.625 / 1000000; 
@@ -115,7 +118,6 @@ void serialEvent(){
 }
 
 // Motor - CONTROLS
-
 void _set_to(bool dir){
 	outmesg = MStatus;
 	if ( direction != dir){	
@@ -140,6 +142,17 @@ bool SetMotorDirection(){
 	return 1;
 }
 
+void PowerOn(){
+	power = true;
+	outmesg = MStatus;
+	sendState();
+}
+
+void PowerOff(){
+	power = false;
+	outmesg = MStatus;
+	sendState();
+}
 
 //MAIN EVT-LOOPS:
 void setup(void) {
@@ -188,9 +201,9 @@ void loop() {
 		sendState();
 		// once msg is finshed, get setpoint and go to MSTART
 		if ( EpicsRecComplete ){
+			convert_String();
 			outmesg = Setpoint;
 			sendState();
-			convert_String();
 			EpicsRecord = "";
 			EpicsRecComplete = false;
 			state=MSTART;
@@ -218,21 +231,31 @@ void loop() {
 		outmesg = State;
 		sendState();
 		
-		outmesg = MStatus;
-		power = true;
+		PowerOn();
+		delay(T_SAMPLE);
+		ReadADC();
+		outmesg = PVADC;
 		sendState();
-		delay(5000);
-		power = false;
-		sendState();
-
-		state = MEND;
+		if ( ( setpoint_f - precission < adc_f )
+	  	  && ( adc_f < setpoint_f + precission ) ){
+			state = MEND;
+		}
 		break;
 
 	case MEND:
 		outmesg = State;
 		sendState();
 
+		PowerOff();
+
 		state = LISTEN;
+		break;
+
+	case ERROR:
+		outmesg = State;
+		sendState();
+		PowerOff();
+		state = ERROR;
 		break;
 	}
 
