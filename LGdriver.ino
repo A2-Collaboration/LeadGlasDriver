@@ -4,6 +4,14 @@
 
 #define NUM_LCD_COLS 20
 #define NUM_LCD_ROWS 4
+// maximum ADC-Voltage
+#define UMAX 2.048
+//how precise should the position be?
+#define POS_PRECISION 10  // +- % [UMAX]
+
+// constants
+const float lsb_adc = 15.625 / 1000000; 
+const float precission = UMAX * POS_PRECISION / 100;
 
 // register devices
 PortI2C I2C1(1);
@@ -13,7 +21,7 @@ AnalogPlug adc(I2C2,0x68);
 Port mdriver(3);
 
 // Process variables
-long uvolt = 0;
+float adc_f = 0;
 float setpoint_f;
 bool direction = false;
 bool power = false;
@@ -24,22 +32,22 @@ bool EpicsRecComplete = false;
 enum { LISTEN , MSTART , MGO , MEND , ERROR } state = LISTEN;
 enum { State, MStatus , PVADC , Setpoint } outmesg = PVADC;
 
-//utils
+//  utils
 void ReadADC(){
 	adc.receive();
 	long raw = (long) adc.read(0) << 16;
 	raw |= (word) adc.read(0) << 8;
 	raw |= adc.read(0);
-	//byte status = adc.read(1);
-	uvolt = raw;
-//	raw *= 1000 / (64);
-//	uvolt = raw / 1000000.;
+	byte status = adc.read(1);
+	adc_f = raw * lsb_adc;
 } 
+
 void convert_String(){
 	char temp[EpicsRecord.length() + 1];
 	EpicsRecord.toCharArray( temp, sizeof(temp));
 	setpoint_f = atof(temp);
 }
+
 void initLCDline(byte n, byte startpos = 0){
 	for ( byte i = startpos ; i < NUM_LCD_COLS ; ++i){
 		lcd.setCursor(i,n);
@@ -47,6 +55,7 @@ void initLCDline(byte n, byte startpos = 0){
 	}
 	lcd.setCursor(startpos,n);
 }
+
 
 //communication
 void sendState(){
@@ -57,13 +66,16 @@ void sendState(){
 		lcd.setCursor(8,0);
 		switch (state){
 		case LISTEN:
-			lcd.print("LISTEN");
+			lcd.print("LISTEN ");
 			break;
 		case ERROR:
-			lcd.print("ERROR!");
+			lcd.print("ERROR! ");
+			break;
+		case MSTART:
+			lcd.print("SET DIR");
 			break;
 		default:
-			lcd.print("MOVING");
+			lcd.print("MOVING ");
 			break;
 		}
 		break;
@@ -71,11 +83,13 @@ void sendState(){
 	case Setpoint:
 		initLCDline(2,8);
 		lcd.print(setpoint_f);
+		lcd.print("V");
 		break;
 
 	case PVADC:
 		initLCDline(1,8);
-		lcd.print(uvolt);
+		lcd.print(adc_f);
+		lcd.print("V");
 		break;
 
 	case MStatus:
@@ -99,6 +113,33 @@ void serialEvent(){
 		EpicsRecComplete = ( incoming == '\n' );
 	}
 }
+
+// Motor - CONTROLS
+
+void _set_to(bool dir){
+	outmesg = MStatus;
+	if ( direction != dir){	
+		// switch off motor befor changing polarity
+		bool power_old = power;
+		power = false;
+		sendState();
+		delay(500);
+		direction = dir;
+		sendState();
+		delay(500);
+		power = power_old;
+		sendState();
+	}
+}
+bool SetMotorDirection(){
+	if ( ( setpoint_f - precission < adc_f )
+	  && ( adc_f < setpoint_f + precission ) ){
+		return 0;
+	}
+	_set_to( adc_f < setpoint_f );
+	return 1;
+}
+
 
 //MAIN EVT-LOOPS:
 void setup(void) {
@@ -142,8 +183,10 @@ void loop() {
 	switch(state){
 
 	case LISTEN:
+		// Say: Listening to EPICS
 		outmesg = State;
 		sendState();
+		// once msg is finshed, get setpoint and go to MSTART
 		if ( EpicsRecComplete ){
 			outmesg = Setpoint;
 			sendState();
@@ -155,20 +198,31 @@ void loop() {
 		break;
 
 	case MSTART:
+		// Say: Set Motor Polarity
+		outmesg = State;
+		sendState();
+		// Update ADC - PV
 		ReadADC();
 		outmesg = PVADC;
 		sendState();
 
-
-
-		outmesg = State;
-		sendState();
-
-		state = MGO;
+		// Determine Direction
+		if ( SetMotorDirection() ){
+			state = MGO;
+		} else {
+			state = LISTEN; // Already in position => LISTEN
+		}
 		break;
 		
 	case MGO:
 		outmesg = State;
+		sendState();
+		
+		outmesg = MStatus;
+		power = true;
+		sendState();
+		delay(5000);
+		power = false;
 		sendState();
 
 		state = MEND;
@@ -183,8 +237,6 @@ void loop() {
 	}
 
 }
-	//
-	//power = !power;
-	//if ( !power ) direction = !direction;
-	//delay(500);
-	//
+
+	
+	
