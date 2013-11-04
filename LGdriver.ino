@@ -119,7 +119,8 @@ void sendState(){
 	}
 }
 void serialEvent(){
-	while (Serial.available()){
+	//while (Serial.available()){
+	while (!EpicsRecComplete){
 		char incoming = (char) Serial.read();
 		EpicsRecord += incoming;
 		EpicsRecComplete = ( incoming == '\n' );
