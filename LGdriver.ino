@@ -10,12 +10,12 @@
 //how precise should the position be?
 //#define POS_PRECISION 5  // +- % [UMAX]   /old
 #define T_SAMPLE 300 // [ ms ]
-#define T_WAITMOTOR 1000 // [ ms ]
+#define T_WAITMOTOR 2500 // [ ms ]    ( wait for stop and adc again )
 
 // constants
 const float lsb_adc = 15.625 / 1000000; 
 //const float precission = UMAX * POS_PRECISION / 100;  //old
-const float precission_l = 0.0005;
+const float precission_l = 0.0013;
 const float precission_r = 0.0015;
 
 // register devices
