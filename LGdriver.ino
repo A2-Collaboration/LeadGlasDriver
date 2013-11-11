@@ -8,19 +8,25 @@
 // maximum ADC-Voltage
 #define UMAX 2.048
 //how precise should the position be?
-#define POS_PRECISION 5  // +- % [UMAX]
+//#define POS_PRECISION 5  // +- % [UMAX]   /old
 #define T_SAMPLE 300 // [ ms ]
+#define T_WAITMOTOR 1000 // [ ms ]
 
 // constants
 const float lsb_adc = 15.625 / 1000000; 
-const float precission = UMAX * POS_PRECISION / 100;
+//const float precission = UMAX * POS_PRECISION / 100;  //old
+const float precission_l = 0.0005;
+const float precission_r = 0.0015;
 
 // register devices
-PortI2C I2C1(1);
+//LCD
+PortI2C I2C1(1);  // JEEPORT no 3
 LiquidCrystalI2C lcd(I2C1);
-PortI2C I2C2(2);
+//ADC
+PortI2C I2C2(3); // JEEPORT no 1
 AnalogPlug adc(I2C2,0x68);
-Port mdriver(3);
+// RELAY
+Port mdriver(4); // JEEPORT no 4
 
 // Process variables
 float adc_f = 0;
@@ -83,9 +89,11 @@ void sendState(){
 		break;
 
 	case Setpoint:
-		initLCDline(2,8);
+		//initLCDline(2,8);
+		lcd.setCursor(8,2);
 		lcd.print(setpoint_f,4);
 		lcd.print("V");
+		lcd.print(" ");
 		break;
 
 	case PVADC:
@@ -97,7 +105,8 @@ void sendState(){
 		break;
 
 	case MStatus:
-		initLCDline(3,8);
+		// initLCDline(3,8);
+		lcd.setCursor(8,3);
 		if ( power ){
 			Serial.print("0s");
 			Serial.println(1);
@@ -113,7 +122,7 @@ void sendState(){
 		} else {
 			Serial.print("0s");
 			Serial.println(0);
-			lcd.print("off");
+			lcd.print("off    ");
 		}
 		break;
 	}
@@ -168,8 +177,8 @@ void _set_to(bool dir){
 	}
 }
 bool SetMotorDirection(){
-	if ( ( setpoint_f - precission < adc_f )
-	  && ( adc_f < setpoint_f + precission ) ){
+	if ( ( setpoint_f - precission_l < adc_f )
+	  && ( adc_f < setpoint_f + precission_r ) ){
 		return 0;
 	}
 	_set_to( adc_f < setpoint_f );
@@ -253,8 +262,8 @@ void loop() {
 		ReadADC();
 		outmesg = PVADC;
 		sendState();
-		if ( ( setpoint_f - precission < adc_f )
-	  	  && ( adc_f < setpoint_f + precission ) ){
+		if ( ( setpoint_f - precission_l < adc_f )
+	  	  && ( adc_f < setpoint_f + precission_r ) ){
 			state = MEND;
 		}
 		break;
@@ -264,6 +273,10 @@ void loop() {
 		sendState();
 
 		PowerOff();
+		delay(T_WAITMOTOR);
+		ReadADC();
+		outmesg = PVADC;
+		sendState();
 
 		state = LISTEN;
 		break;
