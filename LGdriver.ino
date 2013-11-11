@@ -7,16 +7,20 @@
 #define NUM_LCD_ROWS 4
 // maximum ADC-Voltage
 #define UMAX 2.048
-//how precise should the position be?
-//#define POS_PRECISION 5  // +- % [UMAX]   /old
+
+// TIMING
 #define T_SAMPLE 300 // [ ms ]
 #define T_WAITMOTOR 2500 // [ ms ]    ( wait for stop and adc again )
+#define T_SMALLSTEP 200 // [ ms ]  ( In position wackeln... )
 
 // constants
 const float lsb_adc = 15.625 / 1000000; 
-//const float precission = UMAX * POS_PRECISION / 100;  //old
-const float precission_l = 0.0013;
-const float precission_r = 0.0015;
+// Coarse Hysteresis
+const float coardse_l = 0.0040;
+const float coardse_r = 0.0040;
+// Fine Hysteresis
+const float fine_l = 0.0003;
+const float fine_r = 0.0003;
 
 // register devices
 //LCD
@@ -37,7 +41,7 @@ String EpicsRecord = "";
 bool EpicsRecComplete = false;
 
 //STATES
-enum { LISTEN , MSTART , MGO , MEND , ERROR } state = LISTEN;
+enum { LISTEN , MSTART , MGO ,MSTARTFINE, MGOFINE,  MEND , ERROR } state = LISTEN;
 enum { State, MStatus , PVADC , Setpoint } outmesg = PVADC;
 
 //  utils
@@ -74,16 +78,28 @@ void sendState(){
 		lcd.setCursor(8,0);
 		switch (state){
 		case LISTEN:
-			lcd.print("LISTEN ");
+			lcd.print("LISTEN     ");
 			break;
 		case ERROR:
-			lcd.print("ERROR! ");
+			lcd.print("ERROR STATE");
 			break;
 		case MSTART:
-			lcd.print("SET DIR");
+			lcd.print("SET DIR    ");
+			break;
+		case MSTARTFINE:
+			lcd.print("SET FINEDIR");
+			break;
+		case MGO:
+			lcd.print("MOVING     ");
+			break;
+		case MGOFINE:
+			lcd.print("MOVING SLOW");
+			break;
+		case MEND:
+			lcd.print("WAITING    ");
 			break;
 		default:
-			lcd.print("MOVING ");
+			lcd.print("ERROR! UDST");
 			break;
 		}
 		break;
@@ -177,8 +193,16 @@ void _set_to(bool dir){
 	}
 }
 bool SetMotorDirection(){
-	if ( ( setpoint_f - precission_l < adc_f )
-	  && ( adc_f < setpoint_f + precission_r ) ){
+	if ( ( setpoint_f - coardse_l < adc_f )
+	  && ( adc_f < setpoint_f + coardse_r ) ){
+		return 0;
+	}
+	_set_to( adc_f < setpoint_f );
+	return 1;
+}
+bool SetMotorDirectionFine(){
+	if ( ( setpoint_f - fine_l < adc_f )
+	  && ( adc_f < setpoint_f + fine_r ) ){
 		return 0;
 	}
 	_set_to( adc_f < setpoint_f );
@@ -262,9 +286,47 @@ void loop() {
 		ReadADC();
 		outmesg = PVADC;
 		sendState();
-		if ( ( setpoint_f - precission_l < adc_f )
-	  	  && ( adc_f < setpoint_f + precission_r ) ){
+
+		if ( ( setpoint_f - coardse_l < adc_f )
+	  	  && ( adc_f < setpoint_f + coardse_r ) ){
+			PowerOff();
+			delay(T_WAITMOTOR);
+			ReadADC();
+			outmesg = PVADC;
+			sendState();
+			state = MSTARTFINE;
+		}
+		break;
+
+	case MSTARTFINE:
+		outmesg = State;
+		sendState();
+
+		if ( SetMotorDirectionFine() ){
+			state = MGOFINE;
+		} else {
+			state = LISTEN;
+		}
+		break;
+
+	case MGOFINE:
+		outmesg = State;
+		sendState();
+
+		PowerOn();
+		delay(T_SMALLSTEP);
+		PowerOff();
+		delay(T_WAITMOTOR);
+		
+		ReadADC();
+		outmesg = PVADC;
+		sendState();
+
+		if ( ( setpoint_f - fine_l < adc_f )
+	  	  && ( adc_f < setpoint_f + fine_r ) ){
 			state = MEND;
+		} else {
+			state = MGOFINE;
 		}
 		break;
 
