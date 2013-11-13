@@ -60,15 +60,6 @@ void convert_String(){
 	setpoint_f = atof(temp);
 }
 
-void initLCDline(byte n, byte startpos = 0){
-	for ( byte i = startpos ; i < NUM_LCD_COLS ; ++i){
-		lcd.setCursor(i,n);
-		lcd.print(' ');
-	}
-	lcd.setCursor(startpos,n);
-}
-
-
 //communication
 void sendState(){
 
@@ -105,7 +96,6 @@ void sendState(){
 		break;
 
 	case Setpoint:
-		//initLCDline(2,8);
 		lcd.setCursor(8,2);
 		lcd.print(setpoint_f,4);
 		lcd.print("V");
@@ -113,15 +103,14 @@ void sendState(){
 		break;
 
 	case PVADC:
-		initLCDline(1,8);
+		lcd.setCursor(8,1);
 		lcd.print(adc_f,4);
-		lcd.print("V");
+		lcd.print("V  ");
 		Serial.print("adcpos");
 		Serial.println(adc_f,4);
 		break;
 
 	case MStatus:
-		// initLCDline(3,8);
 		lcd.setCursor(8,3);
 		if ( power ){
 			Serial.print("0s");
