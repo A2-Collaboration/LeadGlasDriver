@@ -29,6 +29,8 @@ float adc_f = 0;
 bool direction = false;
 bool power = false;
 
+byte numcyles = 0;
+
 //STATES
 enum { SEND } state = SEND;
 enum { State, PVADC } outmesg = PVADC;
@@ -122,6 +124,11 @@ void loop() {
 		outmesg = PVADC;
 		sendState();
 		break;
+	}
+	numcyles++;
+	if ( numcyles % 25 == 0 ){
+		Serial.println("0s0");
+		Serial.println("1s1");
 	}
 
 }
