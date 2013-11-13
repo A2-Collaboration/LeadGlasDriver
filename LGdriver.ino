@@ -100,6 +100,11 @@ void setup(void) {
 	lcd.print("For calibration, std");
 	lcd.setCursor(0,3);
 	lcd.print("Mode:checkout master");
+
+	// Say epics, that Motor is off and
+	// in forward direction
+	Serial.println("0s0");
+	Serial.println("1s1");
 }
 
 
