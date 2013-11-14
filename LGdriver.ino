@@ -11,7 +11,7 @@
 // TIMING
 #define T_SAMPLE 300 // [ ms ]
 #define T_WAITMOTOR 2500 // [ ms ]    ( wait for stop and adc again )
-#define T_SMALLSTEP 200 // [ ms ]  ( In position wackeln... )
+#define T_SMALLSTEP 150  // [ ms ]  ( In position wackeln... )
 
 // constants
 const float lsb_adc = 15.625 / 1000000; 
@@ -19,8 +19,8 @@ const float lsb_adc = 15.625 / 1000000;
 const float coardse_l = 0.0040;
 const float coardse_r = 0.0040;
 // Fine Hysteresis
-const float fine_l = 0.0003;
-const float fine_r = 0.0003;
+const float fine_l = 0.0002;
+const float fine_r = 0.0002;
 
 // register devices
 //LCD
@@ -243,6 +243,7 @@ void loop() {
 		// Say: Listening to EPICS
 		outmesg = State;
 		sendState();
+
 		// once msg is finshed, get setpoint and go to MSTART
 		if ( EpicsRecComplete ){
 			Init_Start();
@@ -251,8 +252,8 @@ void loop() {
 
 	case MSTART:
 		// Say: Set Motor Polarity
-		outmesg = State;
-		sendState();
+		//outmesg = State;
+		//sendState();
 		// Update ADC - PV
 		ReadADC();
 		outmesg = PVADC;
@@ -262,7 +263,7 @@ void loop() {
 		if ( SetMotorDirection() ){
 			state = MGO;
 		} else {
-			state = LISTEN; // Already in position => LISTEN
+			state = MSTARTFINE; // Already in position => LISTEN
 		}
 		break;
 		
@@ -272,10 +273,12 @@ void loop() {
 		
 		PowerOn();
 		delay(T_SAMPLE);
-		ReadADC();
-		outmesg = PVADC;
-		sendState();
+		//ReadADC();
+		//outmesg = PVADC;
+		//sendState();
+		state = MSTART;
 
+/*
 		if ( ( setpoint_f - coardse_l < adc_f )
 	  	  && ( adc_f < setpoint_f + coardse_r ) ){
 			PowerOff();
@@ -285,16 +288,20 @@ void loop() {
 			sendState();
 			state = MSTARTFINE;
 		}
+*/
 		break;
 
 	case MSTARTFINE:
-		outmesg = State;
+
+
+		ReadADC();
+		outmesg = PVADC;
 		sendState();
 
 		if ( SetMotorDirectionFine() ){
 			state = MGOFINE;
 		} else {
-			state = LISTEN;
+			state = MEND;
 		}
 		break;
 
@@ -307,16 +314,16 @@ void loop() {
 		PowerOff();
 		delay(T_WAITMOTOR);
 		
-		ReadADC();
-		outmesg = PVADC;
-		sendState();
+		state = MSTARTFINE;
 
+/*
 		if ( ( setpoint_f - fine_l < adc_f )
 	  	  && ( adc_f < setpoint_f + fine_r ) ){
 			state = MEND;
 		} else {
 			state = MGOFINE;
 		}
+*/
 		break;
 
 	case MEND:
