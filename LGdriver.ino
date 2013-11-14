@@ -54,23 +54,23 @@ void sendState(){
 		lcd.setCursor(8,0);
 		switch (state){
 		case SEND:
-			lcd.print("Sending Voltage:");
+			lcd.print("Send Voltage");
 			break;
 		default:
-			lcd.print("ERROR! UDST");
+			lcd.print("ERROR! UDST ");
 			break;
 		}
 		break;
 
 	case PVADC:
-		lcd.setCursor(8,1);
+		lcd.setCursor(8,3);
 		lcd.print(adc_f,4);
 		lcd.print("V   ");
 		Serial.print("adcpos");
 		Serial.println(adc_f,4);
 		break;
 	default:
-		lcd.setCursor(8,1);
+		lcd.setCursor(8,3);
 		lcd.print("ERROR      ");
 		break;
 	}
@@ -97,11 +97,11 @@ void setup(void) {
 	lcd.setCursor(0,0);
 	lcd.print("Status: ");
 	lcd.setCursor(0,1);
-	lcd.print("ADC:    ");
+	lcd.print("for calibration, Std");
 	lcd.setCursor(0,2);
-	lcd.print("For calibration, std");
-	lcd.setCursor(0,3);
 	lcd.print("Mode:checkout master");
+	lcd.setCursor(0,3);
+	lcd.print("ADC:    ");
 
 	// Say epics, that Motor is off and
 	// in forward direction
