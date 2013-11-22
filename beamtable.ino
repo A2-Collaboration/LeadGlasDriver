@@ -251,9 +251,7 @@ void loop() {
 		break;
 
 	case MSTART:
-		// Say: Set Motor Polarity
-		//outmesg = State;
-		//sendState();
+
 		// Update ADC - PV
 		ReadADC();
 		outmesg = PVADC;
@@ -263,7 +261,7 @@ void loop() {
 		if ( SetMotorDirection() ){
 			state = MGO;
 		} else {
-			state = MSTARTFINE; // Already in position => LISTEN
+			state = MSTARTFINE; // In coarse position => finetune
 		}
 		break;
 		
@@ -273,22 +271,9 @@ void loop() {
 		
 		PowerOn();
 		delay(T_SAMPLE);
-		//ReadADC();
-		//outmesg = PVADC;
-		//sendState();
-		state = MSTART;
 
-/*
-		if ( ( setpoint_f - coardse_l < adc_f )
-	  	  && ( adc_f < setpoint_f + coardse_r ) ){
-			PowerOff();
-			delay(T_WAITMOTOR);
-			ReadADC();
-			outmesg = PVADC;
-			sendState();
-			state = MSTARTFINE;
-		}
-*/
+		state = MSTART;  // test if coarse position is reached or even overcome
+
 		break;
 
 	case MSTARTFINE:
@@ -316,14 +301,6 @@ void loop() {
 		
 		state = MSTARTFINE;
 
-/*
-		if ( ( setpoint_f - fine_l < adc_f )
-	  	  && ( adc_f < setpoint_f + fine_r ) ){
-			state = MEND;
-		} else {
-			state = MGOFINE;
-		}
-*/
 		break;
 
 	case MEND:
