@@ -9,7 +9,7 @@
 #define UMAX 2.048
 
 // TIMING
-#define T_SAMPLE 500 // [ ms ]
+#define T_SAMPLE 400 // [ ms ]
 #define T_WAITMOTOR 2500 // [ ms ]    ( wait for stop and adc again )
 #define T_SMALLSTEP 150  // [ ms ]  ( In position wackeln... )
 
@@ -45,6 +45,19 @@ enum { LISTEN , MSTART , MGO ,MSTARTFINE, MGOFINE,  MEND , ERROR } state = LISTE
 enum { State, MStatus , PVADC , Setpoint } outmesg = PVADC;
 
 //  utils
+void(* resetFunc)(void)=0; // declare reset func @ addrr0
+
+void reset_adc(){
+	//adc.send();
+	//if (adc.write(0)){
+		//adc.write(0x6);
+		//Serial.println("Reset ADC!");
+	//}
+	//adc.stop();
+		Serial.println("Reset ADC!");
+	resetFunc();
+}
+
 void ReadADC(){
 	adc.receive();
 	long raw = (long) adc.read(0) << 16;
@@ -53,6 +66,11 @@ void ReadADC(){
 	raw &= 0x1FFFFF;
 	byte status = adc.read(1);
 	adc_f = raw * lsb_adc;
+	if  ( adc_f > 2.048 ){
+		reset_adc();
+		delay(T_SAMPLE);
+		ReadADC();
+	}
 } 
 
 void convert_String(){
