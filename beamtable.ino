@@ -9,7 +9,7 @@
 #define UMAX 2.048
 
 // TIMING
-#define T_SAMPLE 300 // [ ms ]
+#define T_SAMPLE 500 // [ ms ]
 #define T_WAITMOTOR 2500 // [ ms ]    ( wait for stop and adc again )
 #define T_SMALLSTEP 150  // [ ms ]  ( In position wackeln... )
 
@@ -50,6 +50,7 @@ void ReadADC(){
 	long raw = (long) adc.read(0) << 16;
 	raw |= (word) adc.read(0) << 8;
 	raw |= adc.read(0);
+	raw &= 0x1FFFFF;
 	byte status = adc.read(1);
 	adc_f = raw * lsb_adc;
 } 
